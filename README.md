@@ -14,10 +14,12 @@ Check my [nautilus extension collection](https://github.com/SimBoi/nautilus-exte
 	# 1. install packages
 	sudo apt update
 	sudo apt install -y curl python3-nautilus at
-	# 2. download the extension script
+	# 2. download the extension scripts
 	mkdir -p ~/.local/share/nautilus-python/extensions
 	curl -L -o ~/.local/share/nautilus-python/extensions/nautilus-file-expiry.py https://raw.githubusercontent.com/simboi/nautilus-file-expiry/main/nautilus-file-expiry.py
-	curl -L -o /opt/file-expiry/delete-if-inode-matches.sh https://raw.githubusercontent.com/simboi/nautilus-file-expiry/main/delete-if-inode-matches.sh
+   	sudo mkdir -p /opt/file-expiry/
+	sudo curl -L -o /opt/file-expiry/delete-if-inode-matches.sh https://raw.githubusercontent.com/simboi/nautilus-file-expiry/main/delete-if-inode-matches.sh
+   	sudo chmod -x /opt/file-expiry/delete-if-inode-matches.sh
 	# 3. restart nautilus
 	nautilus -q
 	```
@@ -28,6 +30,7 @@ Check my [nautilus extension collection](https://github.com/SimBoi/nautilus-exte
 1. Run in the terminal:
 	```bash
 	rm -f ~/.local/share/nautilus-python/extensions/nautilus-file-expiry.py
+ 	sudo rm -rf /opt/file-expiry
 	# restart Nautilus
 	nautilus -q
 	````
