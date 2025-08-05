@@ -277,6 +277,7 @@ class FileExpiryProvider(GObject.GObject, Nautilus.MenuProvider):
 
     def schedule_expiry_at(self, file: Nautilus.FileInfo, time_str: str):
         try:
+            cancel_file_expiry(file.get_location().get_path())  # Cancel any existing expiry
             schedule_file_expiry_at(file.get_location().get_path(), time_str)
         except Exception as e:
             message_alert(
@@ -286,6 +287,7 @@ class FileExpiryProvider(GObject.GObject, Nautilus.MenuProvider):
 
     def schedule_expiry_after(self, file: Nautilus.FileInfo, expire_after: int):
         try:
+            cancel_file_expiry(file.get_location().get_path())  # Cancel any existing expiry
             schedule_file_expiry_after(file.get_location().get_path(), expire_after)
         except Exception as e:
             message_alert(
