@@ -16,10 +16,15 @@ def message_alert(heading: str, body: str, dismiss_label: str = 'Dismiss', paren
         )
     dialog.present(parent)
 
-def schedule_file_expiry(path: str, at_time: str):
+def schedule_file_expiry_at(path: str, at_time: str):
     import subprocess, shlex, os
     cmd = f"/opt/file-expiry/delete-if-inode-matches.sh {shlex.quote(path)} {os.stat(path).st_ino}"
     subprocess.run(['bash', '-c', f'echo {shlex.quote(cmd)} | at {at_time}'], check=True)
+
+def schedule_file_expiry_after(path: str, expire_after: int):
+    import subprocess, shlex, os
+    cmd = f"/opt/file-expiry/delete-if-inode-matches.sh {shlex.quote(path)} {os.stat(path).st_ino} {expire_after}"
+    subprocess.run(['bash', '-c', f'echo {shlex.quote(cmd)} | at now + {expire_after} minutes'], check=True)
 
 def cancel_file_expiry(path: str):
     import subprocess, shlex, os
@@ -77,9 +82,13 @@ class FileExpiryDialog(Adw.Dialog):
         list_box = Gtk.ListBox(css_classes=['boxed-list-separate'])
         body.append(list_box)
 
-        # Create the entry for the time string to pass to the linux 'at' command
+        # Create the entry for the absolute time string to pass to the linux 'at' command
         self.time_str_entry = Adw.EntryRow(title='Time String (\'at\' command format)')
         list_box.append(self.time_str_entry)
+
+        # Create the entry for the expiry duration
+        self.expiry_duration_entry = Adw.EntryRow(title='Expiry After (in minutes)')
+        list_box.append(self.expiry_duration_entry)
 
         # Create the Submit button
         self.submit_button = Gtk.Button(
@@ -89,19 +98,50 @@ class FileExpiryDialog(Adw.Dialog):
             margin_top=8,
         )
         body.append(self.submit_button)
+        def on_submit_clicked(*_):
+            time_str = self.time_str_entry.get_text().strip()
+            expiry_str = self.expiry_duration_entry.get_text().strip()
+            if (time_str and expiry_str) or (not time_str and not expiry_str):
+                message_alert(
+                    heading="Input Error",
+                    body="Please fill either 'Time String' or 'Expiry After', but not both.",
+                    parent=self,
+                )
+                return
+            if time_str:
+                self.schedule_expiry_at()
+            else:
+                self.schedule_expiry_after()
         self.submit_button.connect(
             'clicked',
-            lambda *_: self.schedule_expiry(),
+            on_submit_clicked,
             None,
         )
 
         self.set_child(root)
 
-    def schedule_expiry(self):
+    def schedule_expiry_at(self):
         try:
             time_str = self.time_str_entry.get_text().strip()
             cancel_file_expiry(self.file_path)  # Cancel any existing expiry
-            schedule_file_expiry(self.file_path, time_str)
+            schedule_file_expiry_at(self.file_path, time_str)
+            self.close()
+        except Exception as e:
+            message_alert(
+                heading="Expiry Scheduling Error",
+                body=f"Failed to schedule expiry: {e}",
+                parent=self,
+            )
+            return
+
+    def schedule_expiry_after(self):
+        try:
+            expire_after_str = self.expiry_duration_entry.get_text().strip()
+            expire_after = int(expire_after_str)
+            if not expire_after_str.isdigit() or expire_after <= 0:
+                raise ValueError("Expiry After must be a positive integer.")
+            cancel_file_expiry(self.file_path)  # Cancel any existing expiry
+            schedule_file_expiry_after(self.file_path, expire_after)
             self.close()
         except Exception as e:
             message_alert(
@@ -154,7 +194,7 @@ class FileExpiryProvider(GObject.GObject, Nautilus.MenuProvider):
             )
             in_one_hour_item.connect(
                 "activate",
-                lambda *_: self.schedule_expiry(files[0], "now + 1 hour"),
+                lambda *_: self.schedule_expiry_at(files[0], "now + 1 hour"),
             )
 
             in_one_day_item = Nautilus.MenuItem(
@@ -163,7 +203,7 @@ class FileExpiryProvider(GObject.GObject, Nautilus.MenuProvider):
             )
             in_one_day_item.connect(
                 "activate",
-                lambda *_: self.schedule_expiry(files[0], "now + 1 day"),
+                lambda *_: self.schedule_expiry_at(files[0], "now + 1 day"),
             )
 
             in_one_week_item = Nautilus.MenuItem(
@@ -172,7 +212,7 @@ class FileExpiryProvider(GObject.GObject, Nautilus.MenuProvider):
             )
             in_one_week_item.connect(
                 "activate",
-                lambda *_: self.schedule_expiry(files[0], "now + 1 week"),
+                lambda *_: self.schedule_expiry_at(files[0], "now + 1 week"),
             )
 
             in_one_month_item = Nautilus.MenuItem(
@@ -181,7 +221,25 @@ class FileExpiryProvider(GObject.GObject, Nautilus.MenuProvider):
             )
             in_one_month_item.connect(
                 "activate",
-                lambda *_: self.schedule_expiry(files[0], "now + 1 month"),
+                lambda *_: self.schedule_expiry_at(files[0], "now + 1 month"),
+            )
+
+            after_one_week_item = Nautilus.MenuItem(
+                name="FileExpiryProvider::AfterOneWeek",
+                label="After One Week",
+            )
+            after_one_week_item.connect(
+                "activate",
+                lambda *_: self.schedule_expiry_after(files[0], 10080),  # 10080 minutes = 1 week
+            )
+
+            after_one_month_item = Nautilus.MenuItem(
+                name="FileExpiryProvider::AfterOneMonth",
+                label="After One Month",
+            )
+            after_one_month_item.connect(
+                "activate",
+                lambda *_: self.schedule_expiry_after(files[0], 43200),  # 43200 minutes = 1 month
             )
 
             custom_expiry_item = Nautilus.MenuItem(
@@ -197,6 +255,8 @@ class FileExpiryProvider(GObject.GObject, Nautilus.MenuProvider):
             expiry_menu.append_item(in_one_day_item)
             expiry_menu.append_item(in_one_week_item)
             expiry_menu.append_item(in_one_month_item)
+            expiry_menu.append_item(after_one_week_item)
+            expiry_menu.append_item(after_one_month_item)
             expiry_menu.append_item(custom_expiry_item)
 
         menu_item = Nautilus.MenuItem(
@@ -215,9 +275,18 @@ class FileExpiryProvider(GObject.GObject, Nautilus.MenuProvider):
                 body=f"Failed to cancel expiry: {e}",
             )
 
-    def schedule_expiry(self, file: Nautilus.FileInfo, time_str: str):
+    def schedule_expiry_at(self, file: Nautilus.FileInfo, time_str: str):
         try:
-            schedule_file_expiry(file.get_location().get_path(), time_str)
+            schedule_file_expiry_at(file.get_location().get_path(), time_str)
+        except Exception as e:
+            message_alert(
+                heading="Expiry Scheduling Error",
+                body=f"Failed to schedule expiry: {e}",
+            )
+
+    def schedule_expiry_after(self, file: Nautilus.FileInfo, expire_after: int):
+        try:
+            schedule_file_expiry_after(file.get_location().get_path(), expire_after)
         except Exception as e:
             message_alert(
                 heading="Expiry Scheduling Error",
