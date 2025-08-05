@@ -87,7 +87,7 @@ class FileExpiryDialog(Adw.Dialog):
         list_box.append(self.time_str_entry)
 
         # Create the entry for the expiry duration
-        self.expiry_duration_entry = Adw.EntryRow(title='Expiry After (in minutes)')
+        self.expiry_duration_entry = Adw.EntryRow(title='Expiry After (in minutes) of no use')
         list_box.append(self.expiry_duration_entry)
 
         # Create the Submit button
@@ -226,7 +226,7 @@ class FileExpiryProvider(GObject.GObject, Nautilus.MenuProvider):
 
             after_one_week_item = Nautilus.MenuItem(
                 name="FileExpiryProvider::AfterOneWeek",
-                label="After One Week",
+                label="After One Week of no use",
             )
             after_one_week_item.connect(
                 "activate",
@@ -235,7 +235,7 @@ class FileExpiryProvider(GObject.GObject, Nautilus.MenuProvider):
 
             after_one_month_item = Nautilus.MenuItem(
                 name="FileExpiryProvider::AfterOneMonth",
-                label="After One Month",
+                label="After One Month of no use",
             )
             after_one_month_item.connect(
                 "activate",
