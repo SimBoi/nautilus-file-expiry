@@ -28,4 +28,4 @@ if [ -n "$EXPIRE_AFTER" ]; then
 fi
 
 # Delete the file or directory
-rm -r "$FILE_PATH"
+gio trash "$FILE_PATH"
