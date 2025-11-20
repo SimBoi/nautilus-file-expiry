@@ -1,3 +1,6 @@
+> [!WARNING]
+> This repo is no longer maintained.
+
 ![image](https://github.com/user-attachments/assets/8f887e19-e889-4224-bb92-ce9810ad9a04)
 
 # File Expiry For Nautilus
